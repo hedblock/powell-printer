@@ -28,7 +28,8 @@ contract DividendDistributor is IDividendDistributor {
     address WAVAX = 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7;
     IDEXRouter router;
 
-    address[] shareholders;
+    // remove public
+    address[] public shareholders;
     mapping (address => uint256) shareholderIndexes;
     mapping (address => uint256) shareholderClaims;
 
@@ -73,9 +74,9 @@ contract DividendDistributor is IDividendDistributor {
             distributeDividend(shareholder);
         }
 
-        if(amount > 0 && shares[shareholder].amount == 0){
+        if(amount > 0 && shares[shareholder].amount == 0) {
             addShareholder(shareholder);
-        }else if(amount == 0 && shares[shareholder].amount > 0){
+        } else if(amount == 0 && shares[shareholder].amount > 0) {
             removeShareholder(shareholder);
         }
 
@@ -151,6 +152,7 @@ contract DividendDistributor is IDividendDistributor {
     function claimDividend() external {
         distributeDividend(msg.sender);
     }
+
     /*
     returns the  unpaid earnings
     */

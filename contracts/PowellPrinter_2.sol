@@ -6,9 +6,11 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "./DividendDistributor.sol";
 import "./Auth.sol";
 
+import "hardhat/console.sol";
+
 import "./IDEX.sol";
 
-contract PowellPrinter is IERC20, IERC20Metadata, Auth {
+contract PowellPrinterRevise is IERC20, IERC20Metadata, Auth {
 
     using SafeMath for uint256;
 
@@ -23,7 +25,7 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
     uint256 constant private _totalSupply = 1_000_000_000_000_000 * (10 ** _decimals);
 
     string private _name = "Powell Printer";
-    string private _symbol = "FED";
+    string private _symbol = "POWL";
 
     IDEXRouter public router = IDEXRouter(routerAddress);
     address public pair = IDEXFactory(router.factory()).createPair(WAVAX, address(this));
@@ -140,15 +142,15 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
             require((_balances[recipient] + amount) < _maxWallet, "Max wallet has been triggered");
         }
 
-        // No swapping on buy and tx
-        if (isSell) {
-            if(shouldSwapBack()){ swapBack(); }
-        }
-
         // reduce balance of sender, take fee if necessary, and increment the balance of the reciever
         _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance");
         uint256 amountReceived = _shouldTakeFee(sender) ? _takeFee(sender, amount) : amount;
         _balances[recipient] = _balances[recipient].add(amountReceived);
+
+        // No swapping on buy and tx
+        if (isSell) {
+            if(_shouldReflect()){ _reflect(); }
+        }
 
         // set dividend distributor share for non-exempt addresses
         if(!isDividendExempt[sender]){ try distributor.setShare(sender, _balances[sender]) {} catch {} }
@@ -187,17 +189,19 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
         return amount.sub(feeAmount);
     }
 
-    function shouldSwapBack() internal view returns (bool) {
+    function _shouldReflect() internal view returns (bool) {
         return msg.sender != pair
         && !inSwap
-        && _balances[address(this)] >= swapThreshold;
+        && _balances[address(this)] > 100;
     }
 
-    function swapBack() internal swapping {
+    function _reflect() internal swapping {
+
+        uint256 balance = _balances[address(this)];
 
         uint256 dynamicLiquidityFee = isOverLiquified(targetLiquidity, targetLiquidityDenominator) ? 0 : liquidityFee;
-        uint256 amountToLiquify = swapThreshold.mul(dynamicLiquidityFee).div(totalFee).div(2);
-        uint256 amountToSwap = swapThreshold.sub(amountToLiquify);
+        uint256 amountToLiquify = balance.mul(dynamicLiquidityFee).div(totalFee).div(2);
+        uint256 amountToSwap = balance.sub(amountToLiquify);
 
         // store AVAX balance before swap
         uint256 balanceBefore = address(this).balance;
