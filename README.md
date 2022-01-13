@@ -1,15 +1,7 @@
-# Basic Sample Hardhat Project
+# Powell Printer Contracts
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts.
+This project is a basic Hardhat project that includes the code for the Powell Printer reflection token.
 
-Try running some of the following tasks:
+Before running any code, make sure to run npm install.
 
-```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-node scripts/sample-script.js
-npx hardhat help
-```
+Try running npx hardhat test to see the running of the included test files.
