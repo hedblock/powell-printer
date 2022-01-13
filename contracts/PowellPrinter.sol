@@ -187,10 +187,12 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
         return amount.sub(feeAmount);
     }
 
+    // contract should reflect if the balance is above the reflection threshold and the sender is not the pair
     function _shouldReflect() internal view returns (bool) {
         return swapEnabled && msg.sender != pair && !inSwap && _balances[address(this)] >= swapThreshold;
     }
 
+    // mechanic that sends reflections to their respective locations
     function _reflect() internal swapping {
         uint256 balance = _balances[address(this)];
         
@@ -238,11 +240,13 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
         }
     }
 
+    // sets the maximum $POWL a wallet can hold
     function setMaxWallet(uint256 amount) external authorized {
         require(amount >= _totalSupply / 1000);
         _maxWallet = amount;
     }
 
+    // sets the maximum transaction size
     function setTxLimit(uint256 amount) external authorized {
         require(amount >= _totalSupply / 1000);
         _maxTxAmount = amount;
@@ -279,6 +283,7 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
         return isHoldingLimitExempt[holder];
     }
 
+    // sets the fee amounts, will be used for dynamic liquidity fee
     function setFees(uint256 _liquidityFee, uint256 _buybackFee, uint256 _reflectionFee, uint256 _marketingFee, uint256 _feeDenominator) external authorized {
         liquidityFee = _liquidityFee;
         buybackFee = _buybackFee;
@@ -289,21 +294,25 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
         require(totalFee < feeDenominator/4);
     }
 
+    // sets the addresses which receive fees and liquidity
     function setFeeReceivers(address _autoLiquidityReceiver, address _marketingFeeReceiver) external authorized {
         autoLiquidityReceiver = _autoLiquidityReceiver;
         marketingFeeReceiver = _marketingFeeReceiver;
     }
 
+    // sets the reflect threshold and reflect toggle
     function setReflectSettings(bool _enabled, uint256 _amount) external authorized {
         swapEnabled = _enabled;
         swapThreshold = _amount;
     }
 
+    // sets the target liquidity, used in calculating dynamic liquidity fee
     function setTargetLiquidity(uint256 _target, uint256 _denominator) external authorized {
         targetLiquidity = _target;
         targetLiquidityDenominator = _denominator;
     }
     
+    // sets the minimum period and distrubution amount for withdraw
     function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external authorized {
         distributor.setDistributionCriteria(_minPeriod, _minDistribution);
     }
@@ -314,6 +323,7 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
         distributorGas = gas;
     }
 
+    // gets double the amount of $POWL in the liquidity pool
     function getLiquidityBacking(uint256 accuracy) public view returns (uint256) {
         return accuracy.mul(balanceOf(pair).mul(2)).div(_totalSupply);
     }
