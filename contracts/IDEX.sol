@@ -31,6 +31,24 @@ interface IDEXRouter {
         uint deadline
     ) external payable returns (uint amountToken, uint amountAVAX, uint liquidity);
 
+    function removeLiquidityAVAX(
+        address token,
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountAVAXMin,
+        address to,
+        uint256 deadline
+    ) external returns (uint256 amountToken, uint256 amountAVAX);
+
+    function removeLiquidityAVAXSupportingFeeOnTransferTokens(
+        address token,
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountAVAXMin,
+        address to,
+        uint256 deadline
+    ) external returns (uint256 amountAVAX);
+
     function swapExactTokensForTokensSupportingFeeOnTransferTokens(
         uint amountIn,
         uint amountOutMin,
@@ -53,4 +71,8 @@ interface IDEXRouter {
         address to,
         uint deadline
     ) external;
+}
+
+interface IPair {
+    function approve(address spender, uint256 value) external returns (bool);
 }

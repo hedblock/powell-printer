@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "./SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./IERC20.sol";
 import "./IDEX.sol";
 
 interface IDividendDistributor {
@@ -20,7 +20,7 @@ contract DividendDistributor is IDividendDistributor {
 
     struct Share {
         uint256 amount;
-        uint256 totalExcluded; // excluded dividend
+        uint256 totalExcluded;
         uint256 totalRealised;
     }
 
@@ -42,7 +42,7 @@ contract DividendDistributor is IDividendDistributor {
     uint256 public dividendsPerShareAccuracyFactor = 10 ** 36;
 
     uint256 public minPeriod = 1 hours;
-    uint256 public minDistribution = 10 * (10 ** 18);
+    uint256 public minDistribution = 1 * (10 ** 6);
 
     uint256 currentIndex;
 
@@ -91,7 +91,6 @@ contract DividendDistributor is IDividendDistributor {
         address[] memory path = new address[](2);
         path[0] = WAVAX;
         path[1] = address(USDC);
-
         router.swapExactAVAXForTokensSupportingFeeOnTransferTokens{value: msg.value}(
             0,
             path,
@@ -153,9 +152,6 @@ contract DividendDistributor is IDividendDistributor {
         distributeDividend(msg.sender);
     }
 
-    /*
-    returns the  unpaid earnings
-    */
     function getUnpaidEarnings(address shareholder) public view returns (uint256) {
         if(shares[shareholder].amount == 0){ return 0; }
 

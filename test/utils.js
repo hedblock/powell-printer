@@ -10,7 +10,7 @@ async function shouldThrow(promise, message) {
 }
 
 async function bnCloseTo(v1, v2, delta) {
-    const diff = (v1.sub(v2)).abs()
+    const diff = (v1.sub(v2)).abs();
     assert(diff.lt(delta), `${v1.toString()} is not close to ${v2.toString()}`);
 }
 

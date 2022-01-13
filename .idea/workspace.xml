@@ -4,9 +4,11 @@
     <list default="true" id="a4a1aef6-7f33-4d3f-920c-311245594433" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/contracts/DividendDistributor.sol" beforeDir="false" afterPath="$PROJECT_DIR$/contracts/DividendDistributor.sol" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/contracts/Greeter.sol" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/contracts/PowellPrinter.sol" beforeDir="false" afterPath="$PROJECT_DIR$/contracts/PowellPrinter.sol" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test/sample-test.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/contracts/PowellPrinterTest.sol" beforeDir="false" afterPath="$PROJECT_DIR$/contracts/PowellPrinterTest.sol" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/contracts/PowellPrinter_2.sol" beforeDir="false" afterPath="$PROJECT_DIR$/contracts/PowellPrinter_2.sol" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/distributor-test.js" beforeDir="false" afterPath="$PROJECT_DIR$/test/distributor-test.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/printer-test.js" beforeDir="false" afterPath="$PROJECT_DIR$/test/printer-test.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/utils.js" beforeDir="false" afterPath="$PROJECT_DIR$/test/utils.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,7 +35,7 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../ethereum-boilerplate" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
@@ -81,6 +83,7 @@
       <workItem from="1641419107985" duration="10824000" />
       <workItem from="1641493322910" duration="27756000" />
       <workItem from="1641597486743" duration="22000" />
+      <workItem from="1641656655248" duration="17114000" />
     </task>
     <servers />
   </component>

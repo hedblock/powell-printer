@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.2;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "./IERC20.sol";
+import "./IERC20Metadata.sol";
 import "./DividendDistributor.sol";
 import "./Auth.sol";
 
@@ -12,23 +13,14 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
 
     using SafeMath for uint256;
 
-    // Wrapped AVAX, ERC-20 compliant
     address public WAVAX = 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7;
     address public routerAddress = 0x60aE616a2155Ee3d9A68541Ba4544862310933d4;
 
-    mapping(address => uint256) private _balances;
-    mapping(address => mapping (address => uint256)) _allowances;
-
+    string constant _name = "Powell Printer";
+    string constant _symbol = "POWL";
     uint8 constant _decimals = 6;
+
     uint256 constant private _totalSupply = 1_000_000_000_000_000 * (10 ** _decimals);
-
-    string private _name = "Powell Printer";
-    string private _symbol = "FED";
-
-    IDEXRouter public router = IDEXRouter(routerAddress);
-    address public pair = IDEXFactory(router.factory()).createPair(WAVAX, address(this));
-
-    // transaction and balance limit
     uint256 public _maxTxAmount = _totalSupply.div(40); // 2,5%
     uint256 public _maxWallet = _totalSupply.div(40); // 2,5%
 
@@ -38,17 +30,23 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
     mapping (address => bool) isDividendExempt;
     mapping (address => bool) isHoldingLimitExempt;
 
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping (address => uint256)) _allowances;
+
     // percentage fees, will allow tweaking knobs
-    uint256 public liquidityFee = 800;
+    uint256 public liquidityFee = 200;
     uint256 public buybackFee = 0;
-    uint256 public reflectionFee = 500;
-    uint256 public marketingFee = 400;
-    uint256 public totalFee = 1700;
+    uint256 public reflectionFee = 1200;
+    uint256 public marketingFee = 500;
+    uint256 public totalFee = 1900;
     uint256 public feeDenominator = 10000;
 
     // addresses for fees
     address public autoLiquidityReceiver;
     address public marketingFeeReceiver;
+
+    IDEXRouter public router = IDEXRouter(routerAddress);
+    address public pair = IDEXFactory(router.factory()).createPair(WAVAX, address(this));
 
     // toggles liquidityFee, look more into this
     uint256 targetLiquidity = 10;
@@ -59,28 +57,31 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
 
     uint256 distributorGas = 500000;
 
-    uint256 public swapThreshold = _totalSupply / 5000; // 0.0025%
+    uint256 public swapThreshold = _totalSupply / 5000000; // 200,000,000
+    bool swapEnabled = true;
     bool inSwap;
     modifier swapping() { inSwap = true; _; inSwap = false; }
 
     constructor() Auth(msg.sender) {
 
-        marketingFeeReceiver = msg.sender;
-        autoLiquidityReceiver = msg.sender;
-
         _allowances[address(this)][address(router)] = _totalSupply;
-
-        isFeeExempt[msg.sender] = true;
-        isTxLimitExempt[msg.sender] = true;
-        isDividendExempt[pair] = true;
-        isDividendExempt[address(this)] = true;
 
         distributor = new DividendDistributor(routerAddress);
         distributorAddress = address(distributor);
 
+        isFeeExempt[msg.sender] = true;
+        isFeeExempt[address(this)] = true;
+        isTxLimitExempt[msg.sender] = true;
+        isDividendExempt[pair] = true;
+        isDividendExempt[address(this)] = true;
+
+        isHoldingLimitExempt[msg.sender] = true;
+
+        marketingFeeReceiver = msg.sender;
+        autoLiquidityReceiver = msg.sender;
+
         approve(routerAddress, _totalSupply);
         approve(address(pair), _totalSupply);
-
         _balances[msg.sender] = _totalSupply;
         emit Transfer(address(0), msg.sender, _totalSupply);
 
@@ -90,8 +91,8 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
     receive() external payable { }
 
     // getter methods for private variables
-    function name() external view override returns (string memory) { return _name; }
-    function symbol() external view override returns (string memory) { return _symbol; }
+    function name() external pure override returns (string memory) { return _name; }
+    function symbol() external pure override returns (string memory) { return _symbol; }
     function decimals() external pure override returns (uint8) { return _decimals; }
     function totalSupply() external pure override returns (uint256) { return _totalSupply; }
     function getOwner() external view returns (address) { return owner; }
@@ -99,8 +100,7 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
     function allowance(address holder, address spender) public view override returns (uint256) { return _allowances[holder][spender]; }
 
     // let spender spend amount from msg.sender
-    function approve(address spender, uint256 amount) public override returns (bool)
-    {
+    function approve(address spender, uint256 amount) public override returns (bool){
         _allowances[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
@@ -126,6 +126,7 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
 
     // transfer mechanic that sends amount to sender, experiencing a tax where appropriate
     function _transferFrom(address sender, address recipient, uint256 amount) internal returns (bool) {
+
         if(inSwap) { return _basicTransfer(sender, recipient, amount); }
 
         // check if the user is buying or selling tokens
@@ -140,14 +141,13 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
             require((_balances[recipient] + amount) < _maxWallet, "Max wallet has been triggered");
         }
 
-        // No swapping on buy and tx
-        if (isSell) {
-            if(shouldSwapBack()){ swapBack(); }
+        if(isSell && _shouldReflect()) {
+            _reflect();
         }
 
         // reduce balance of sender, take fee if necessary, and increment the balance of the reciever
         _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance");
-        uint256 amountReceived = _shouldTakeFee(sender) ? _takeFee(sender, amount) : amount;
+        uint256 amountReceived = _shouldTakeFee(sender) ? _takeFee(amount, sender) : amount;
         _balances[recipient] = _balances[recipient].add(amountReceived);
 
         // set dividend distributor share for non-exempt addresses
@@ -180,24 +180,23 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
     }
 
     // calculates the fee on a transaction, gives the fee to the contract, and decrements the amount by the fee amount
-    function _takeFee(address sender, uint256 amount) internal returns (uint256) {
+    function _takeFee(uint256 amount, address sender) internal returns (uint256) {
         uint256 feeAmount = amount.mul(totalFee).div(feeDenominator);
         _balances[address(this)] = _balances[address(this)].add(feeAmount);
         emit Transfer(sender, address(this), feeAmount);
         return amount.sub(feeAmount);
     }
 
-    function shouldSwapBack() internal view returns (bool) {
-        return msg.sender != pair
-        && !inSwap
-        && _balances[address(this)] >= swapThreshold;
+    function _shouldReflect() internal view returns (bool) {
+        return swapEnabled && msg.sender != pair && !inSwap && _balances[address(this)] >= swapThreshold;
     }
 
-    function swapBack() internal swapping {
-
+    function _reflect() internal swapping {
+        uint256 balance = _balances[address(this)];
+        
         uint256 dynamicLiquidityFee = isOverLiquified(targetLiquidity, targetLiquidityDenominator) ? 0 : liquidityFee;
-        uint256 amountToLiquify = swapThreshold.mul(dynamicLiquidityFee).div(totalFee).div(2);
-        uint256 amountToSwap = swapThreshold.sub(amountToLiquify);
+        uint256 amountToLiquify = balance.mul(dynamicLiquidityFee).div(totalFee).div(2);
+        uint256 amountToSwap = balance.sub(amountToLiquify);
 
         // store AVAX balance before swap
         uint256 balanceBefore = address(this).balance;
@@ -216,23 +215,24 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
 
         uint256 amountAVAX = address(this).balance.sub(balanceBefore);
 
-        uint256 totalAVAXFee = totalFee.sub(dynamicLiquidityFee.div(2));
+        uint256 calculatedFeeDenominator = totalFee.sub(liquidityFee).add(dynamicLiquidityFee.div(2));
 
-        uint256 amountAVAXReflection = amountAVAX.mul(reflectionFee).div(totalAVAXFee);
-        try distributor.deposit{value: amountAVAXReflection}() {} catch {}
+        uint256 amountAVAXReflection = amountAVAX.mul(reflectionFee).div(calculatedFeeDenominator);
+        distributor.deposit{value: amountAVAXReflection}();
 
-        uint256 amountAVAXMarketing = amountAVAX.mul(marketingFee).div(totalAVAXFee);
+        uint256 amountAVAXMarketing = amountAVAX.mul(marketingFee).div(calculatedFeeDenominator);
         payable(marketingFeeReceiver).transfer(amountAVAXMarketing);
 
+        uint256 amountAVAXLiquidity = amountAVAX.mul(dynamicLiquidityFee).div(2).div(calculatedFeeDenominator);
+
         if(amountToLiquify > 0){
-            uint256 amountAVAXLiquidity = amountAVAX.mul(dynamicLiquidityFee).div(totalAVAXFee).div(2);
             router.addLiquidityAVAX{value: amountAVAXLiquidity}(
                 address(this),
                 amountToLiquify,
                 0,
                 0,
                 autoLiquidityReceiver,
-                block.timestamp
+                block.timestamp + 1
             );
             emit AutoLiquify(amountAVAXLiquidity, amountToLiquify);
         }
@@ -279,10 +279,43 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
         return isHoldingLimitExempt[holder];
     }
 
+    function setFees(uint256 _liquidityFee, uint256 _buybackFee, uint256 _reflectionFee, uint256 _marketingFee, uint256 _feeDenominator) external authorized {
+        liquidityFee = _liquidityFee;
+        buybackFee = _buybackFee;
+        reflectionFee = _reflectionFee;
+        marketingFee = _marketingFee;
+        totalFee = _liquidityFee.add(_buybackFee).add(_reflectionFee).add(_marketingFee);
+        feeDenominator = _feeDenominator;
+        require(totalFee < feeDenominator/4);
+    }
+
+    function setFeeReceivers(address _autoLiquidityReceiver, address _marketingFeeReceiver) external authorized {
+        autoLiquidityReceiver = _autoLiquidityReceiver;
+        marketingFeeReceiver = _marketingFeeReceiver;
+    }
+
+    function setReflectSettings(bool _enabled, uint256 _amount) external authorized {
+        swapEnabled = _enabled;
+        swapThreshold = _amount;
+    }
+
+    function setTargetLiquidity(uint256 _target, uint256 _denominator) external authorized {
+        targetLiquidity = _target;
+        targetLiquidityDenominator = _denominator;
+    }
+    
+    function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external authorized {
+        distributor.setDistributionCriteria(_minPeriod, _minDistribution);
+    }
+    
     // sets the distributor gas, ensuring it is not above 750,000
     function setDistributorSettings(uint256 gas) external authorized {
         require(gas < 750000);
         distributorGas = gas;
+    }
+
+    function getLiquidityBacking(uint256 accuracy) public view returns (uint256) {
+        return accuracy.mul(balanceOf(pair).mul(2)).div(_totalSupply);
     }
 
     // checks if the current liquidity is
@@ -290,16 +323,5 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
         return getLiquidityBacking(accuracy) > target;
     }
 
-    function getLiquidityBacking(uint256 accuracy) public view returns (uint256) {
-        return accuracy.mul(balanceOf(pair).mul(2)).div(_totalSupply);
-    }
-
-    // gets the number of tokens that are not dead or burned
-    // function getCirculatingSupply() public view returns (uint256) {
-    //     return _totalSupply.sub(balanceOf(DEAD)).sub(balanceOf(ZERO));
-    // }
-
     event AutoLiquify(uint256 amountAVAX, uint256 amountBOG);
-    event BuybackMultiplierActive(uint256 duration);
-
 }
