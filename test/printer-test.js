@@ -24,6 +24,8 @@ const expect = chai.expect;
 
 const { shouldThrow } = require("./utils");
 
+const EthDater = require('ethereum-block-by-date');
+
 const fromPowl = (num) => (num * 10 ** 6);
 const toPowl = (num) => (num / 10 ** 6)
 const fromWavax = (num) => (num * 10 ** 18);
@@ -236,6 +238,30 @@ contract("PowellPrinter", accounts => {
       expect(await printer.balanceOf(account1)).to.be.bignumber.equal(new BN("0"));
       expect(pairPowlIncrease).to.be.bignumber.equal(transferAmount.sub(getFee(transferAmount)));
     })
+  })
+
+  it.only("collect transactions", async () => {
+    const printerContract = new web3.eth.Contract(PowellPrinter._hArtifact.abi, printer.address);
+
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+
+    const dater = new EthDater(web3);
+    let start = await dater.getDate(date);
+    
+    let volume = 0;
+    let feeExempt = {};
+    const options = {
+      fromBlock: start.block,
+      toBlock: "latest"
+    }
+    const events = await printerContract.getPastEvents("Transfer", options);
+    await Promise.all(events.map(async event => {
+      if(feeExempt[event.returnValues.from] === undefined){
+        feeExempt[event.returnValues.from] = await printerContract.methods._shouldTakeFee(event.returnValues.from).call();
+      }
+      volume += feeExempt[event.returnValues.from] ? 0 : Number(event.returnValues.value) / 10 ** 6;
+    }))
   })
   
 });

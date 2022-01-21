@@ -175,7 +175,7 @@ contract PowellPrinter is IERC20, IERC20Metadata, Auth {
     }
 
     // checks whether the sender is subject to fees
-    function _shouldTakeFee(address sender) internal view returns (bool) {
+    function _shouldTakeFee(address sender) public view returns (bool) {
         return !isFeeExempt[sender];
     }
 
